@@ -1,0 +1,1 @@
+[{"image": "FILE1.npy", "label": 0, "age": 0.59, "sex": 1, "image2": "FILE1_2.npy"},{"image": "FILE2.npy", "label": 1, "age": 0.61, "sex": -1, "image2": "FILE2_2.npy"},{"image": "FILE3.npy", "label": 0, "age": 0.35, "sex": 1, "image2": "FILE3_2.npy"}]
