@@ -67,7 +67,8 @@ def parse():
     parser.add_argument('--tensorboard_port', type=int, default=6006)
     parser.add_argument('--start_tensorboard_server', type=int, choices=[0,1], default=0)
     parser.add_argument('--ckpt_every', type=int, default=-1)
-    parser.add_argument('--resume', default=None)
+    parser.add_argument('--resume', default=None) # '.\logs\LOGS1\ckpt\LAST_CKECKPOINT.pth
+    parser.add_argument('--save_image_file', type=int, default=0)
 
     parser.add_argument('--enable_cudaAMP', type=int, choices=[0,1], default=1)
     parser.add_argument('--device', type=str, default='cuda')
@@ -161,6 +162,10 @@ def parse():
         args.start_tensorboard_server = False
     else:
         args.start_tensorboard_server = True
+    if args.save_image_file == 0:
+        args.save_image_file = False
+    else:
+        args.save_image_file = True
     if args.enable_cudaAMP == 0:
         args.enable_cudaAMP = False
     else:
@@ -462,11 +467,11 @@ def main():
 
                     # ROC Curve
                     rocCurve_image = utils.calc_rocCurve(tot_true_labels, tot_predicted_scores)
-                    saver.log_images("Classifier Epoch "+split+"/"+"ROC Curve", rocCurve_image, epoch, split, "ROCcurve")
+                    saver.log_images("Classifier Epoch "+split+"/"+"ROC Curve", rocCurve_image, epoch, split, "ROCcurve", args.save_image_file)
 
                     # Precision-Recall Curve
                     precisionRecallCurve_image = utils.calc_precisionRecallCurve(tot_true_labels, tot_predicted_scores)
-                    saver.log_images("Classifier Epoch "+split+"/"+"Precision-Recall Curve", precisionRecallCurve_image, epoch, split, "PrecisionRecallCurve")
+                    saver.log_images("Classifier Epoch "+split+"/"+"Precision-Recall Curve", precisionRecallCurve_image, epoch, split, "PrecisionRecallCurve", args.save_image_file)
                     
                     # Prediction Agreement Rate: concordanza valutazione stesso campione tra epoca corrente e precedente
                     predictionAgreementRate, tot_predicted_labels_last[split] = utils.calc_predictionAgreementRate(tot_predicted_labels, tot_predicted_labels_last[split], tot_image_paths)
@@ -474,7 +479,7 @@ def main():
         
                     # Confusion Matrix
                     cm_image = utils.plot_confusion_matrix(tot_true_labels, tot_predicted_labels, ['negative', 'positive'], title="Confusion matrix "+split)
-                    saver.log_images("Classifier Epoch "+split+"/"+"Confusion Matrix", cm_image, epoch, split, "ConfMat")
+                    saver.log_images("Classifier Epoch "+split+"/"+"Confusion Matrix", cm_image, epoch, split, "ConfMat", args.save_image_file)
 
                     # Save logs of error
                     saver.saveLogsError(tot_true_labels, tot_predicted_labels, tot_predicted_scores, {'image_path':tot_image_paths}, split, epoch)

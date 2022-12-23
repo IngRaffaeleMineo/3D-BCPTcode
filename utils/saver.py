@@ -140,7 +140,7 @@ class Saver(object):
         '''
         self.writer.add_scalar(name, value, iter_n)
 
-    def log_images(self, name: str, images_vector: torch.Tensor, iter_n: int, split, filename):
+    def log_images(self, name: str, images_vector: torch.Tensor, iter_n: int, split, filename, save_file):
         '''
         Log images to Tensorboard
         image_vector.shape = (CH,M,N)
@@ -148,13 +148,13 @@ class Saver(object):
         img_grid = torchvision.utils.make_grid(images_vector.unsqueeze(0), normalize=True, nrow=10)
         self.writer.add_image(name, img_grid, iter_n)
         #pil_img = transforms.ToPILImage()(img_grid.cpu())
-        out_path = self.output_path[split] / f'{filename}_{iter_n:05d}.png'
-        torchvision.utils.save_image(img_grid.cpu(), out_path, normalize=True)
+        if save_file:
+            self.save_image(img_grid, filename, split, iter_n)
 
     def save_image(self, tensor_img: torch.Tensor, filename: str, split, step):
         ''' Save image from tensor to file '''
         out_path = self.output_path[split] / f'{filename}_{step:05d}.png'
-        torchvision.utils.save_image(tensor_img, out_path, normalize=True)
+        torchvision.utils.save_image(tensor_img.cpu(), out_path, normalize=True)
 
     @staticmethod
     def load_hyperparams(hyperparams_path):
