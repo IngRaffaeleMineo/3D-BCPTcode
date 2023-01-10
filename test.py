@@ -148,7 +148,7 @@ def main():
         print("-------------------------")
 
     # Dataset e Loader
-    print("Dataset: balanced nested cross-validation use inner_loop (validation-set) " + str(args.inner_loop) + " and fold (test-set) " + str(args.num_fold) + ".")
+    print("Dataset: balanced nested cross-validation use fold (test-set) " + str(args.num_fold) + " and inner_loop (validation-set) " + str(args.inner_loop) + ".")
     loaders, samplers, loss_weights = get_loader(args)
     del loaders['train']
     del loaders['validation']
@@ -159,7 +159,7 @@ def main():
                         enable_datiClinici=args.enable_datiClinici,
                         in_dim_datiClinici=args.len_datiClinici if args.enable_datiClinici else None,
                         enable_doppiaAngolazione=args.enable_doppiaAngolazione,
-                        enable_keyframe=args.enable_inputBranchKeyframe,
+                        enable_keyframe=args.enable_keyframe,
                         reduceInChannel=args.reduceInChannel,
                         enableGlobalMultiHeadAttention=args.enableGlobalMultiHeadAttention,
                         enableTemporalMultiHeadAttention=args.enableTemporalMultiHeadAttention,
@@ -256,7 +256,7 @@ def main():
             if args.dataset2d:
                 tot_images_2d = []
                 tot_images_2d_gradient = []
-            tot_true_labels = []
+        tot_true_labels = []
         tot_predicted_labels = []
         tot_predicted_scores = []
         tot_image_paths = []
@@ -264,16 +264,16 @@ def main():
             labels, image_paths = batch['label'], batch['image']
             
             images_3d = None
+            doppiaAngolazione_3d = None
             if args.dataset3d:
                 images_3d = batch['image_3d']
-                doppiaAngolazione_3d = None
                 if args.doppiaAngolazioneInput:
                     doppiaAngolazione_3d = batch['image2_3d']
 
             images_2d = None
+            doppiaAngolazione_2d = None
             if args.dataset2d:
                 images_2d = batch['image_2d']
-                doppiaAngolazione_2d = None
                 if args.doppiaAngolazioneInput:
                     doppiaAngolazione_2d = batch['image2_2d']
             
@@ -311,7 +311,20 @@ def main():
 
             labels = labels.to(device)
             
-            returned_values = Trainer.forward_batch_testing(model, images_3d, images_2d, datiClinici, doppiaAngolazione_3d, doppiaAngolazione_2d, args.enable_datiClinici, args.doppiaAngolazioneInput, scaler)
+            returned_values = Trainer.forward_batch_testing(net=model,
+                                                            imgs_3d=images_3d,
+                                                            imgs_2d=images_2d,
+                                                            FFRs=FFRs,
+                                                            iFRs=iFRs,
+                                                            datiClinici=datiClinici,
+                                                            doppiaAngolazione_3d=doppiaAngolazione_3d,
+                                                            doppiaAngolazione_2d=doppiaAngolazione_2d,
+                                                            enable_multibranch_ffr=args.enable_multibranch_ffr,
+                                                            enable_multibranch_ifr=args.enable_multibranch_ifr,
+                                                            enable_datiClinici=args.enable_datiClinici,
+                                                            doppiaAngolazioneInput=args.doppiaAngolazioneInput,
+                                                            keyframeInput=args.keyframeInput,
+                                                            scaler=scaler)
             predicted_labels, predicted_scores = returned_values
             
             tot_predicted_labels.extend(predicted_labels.tolist())
@@ -320,16 +333,16 @@ def main():
             if args.enable_explainability:
                 if args.explainability_mode == 'medcam':
                     if args.distributed:
-                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.module.get_attention_map()), images.shape[2:])
+                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.module.get_attention_map()), images_3d.shape[2:])
                     else:
-                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.get_attention_map()), images.shape[2:])
+                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.get_attention_map()), images_3d.shape[2:])
                     upsamp_attr_lgc = upsamp_attr_lgc.cpu().detach().numpy()
-                    tot_images_gradient.extend(upsamp_attr_lgc.tolist())
+                    tot_images_3d_gradient.extend(upsamp_attr_lgc.tolist())
                 elif args.explainability_mode == 'pytorchgradcambook':
                     # targets =  specify the target to generate the Class Activation Maps
-                    grayscale_cam = cam(input_tensor=images_clone, targets=[ClassifierOutputTarget(1)], aug_smooth=True, eigen_smooth=True)
+                    grayscale_cam = cam(input_tensor=images_3d_clone, targets=[ClassifierOutputTarget(1)], aug_smooth=True, eigen_smooth=True)
                     grayscale_cam = grayscale_cam.cpu().detach().numpy()
-                    tot_images_gradient.extend(grayscale_cam.tolist())
+                    tot_images_3d_gradient.extend(grayscale_cam.tolist())
         
         if args.distributed:
             torch.distributed.barrier()
@@ -446,17 +459,17 @@ def main():
                 if not os.path.exists(args.logdir + '/export_fold' + str(args.num_fold)):
                     os.makedirs(args.logdir + '/export_fold' + str(args.num_fold))
                 
-                for i2 in tqdm(range(len(tot_images)), desc='Explainability'):
-                    tot_images[i2] = torch.tensor(tot_images[i2])
-                    tot_images_gradient[i2] = torch.tensor(tot_images_gradient[i2])
+                for i2 in tqdm(range(len(tot_images_3d)), desc='Explainability'):
+                    tot_images_3d[i2] = torch.tensor(tot_images_3d[i2])
+                    tot_images_3d_gradient[i2] = torch.tensor(tot_images_3d_gradient[i2])
                     imgs=[]
                     plt.clf()
-                    for i in range(tot_images[i2].shape[1]):
+                    for i in range(tot_images_3d[i2].shape[1]):
                         if args.explainability_mode == 'medcam':
-                            plt.imshow(tot_images[i2][0,i,:,:].cpu().squeeze().numpy(), cmap='gray')
-                            plt.imshow(scipy.ndimage.gaussian_filter(tot_images_gradient[i2][0,i,:,:], sigma=10), interpolation='nearest', alpha=0.25)
+                            plt.imshow(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), cmap='gray')
+                            plt.imshow(scipy.ndimage.gaussian_filter(tot_images_3d_gradient[i2][0,i,:,:], sigma=10), interpolation='nearest', alpha=0.25)
                         elif args.explainability_mode == 'pytorchgradcambook':
-                            plt.imshow(show_cam_on_image(tot_images[i2][0,i,:,:].cpu().squeeze().numpy(), tot_images_gradient[i2][0,i,:,:], use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5))
+                            plt.imshow(show_cam_on_image(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), tot_images_3d_gradient[i2][0,i,:,:], use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5))
                         plt.axis('off')
                         buf = io.BytesIO()
                         plt.savefig(buf, format='jpeg')
