@@ -274,7 +274,7 @@ def main():
                         numHeadMultiHeadAttention=args.numHeadMultiHeadAttention,
                         loss_weights=loss_weights)
     if args.resume is not None:
-        model.load_state_dict(Saver.load_model(args['resume']))
+        model.load_state_dict(Saver.load_model(args['resume']), strict=True)
     model.to(device)
 
     # Enable model distribuited if it is
