@@ -52,6 +52,7 @@ def parse():
     parser.add_argument('--tornado_port', type=int, default=8800) # matplotlib web interface
     parser.add_argument('--saveLogs', type=bool, default=True)
     parser.add_argument('--enable_explainability', type=bool, default=True)
+    parser.add_argument('--explainability_model_multiOutput', type=bool, default=False)
     parser.add_argument('--explainability_mode', type=str, choices=['medcam', 'pytorchgradcambook'], default='pytorchgradcambook')
 
     parser.add_argument('--enable_cudaAMP', type=bool, default=True)
@@ -162,17 +163,18 @@ def main():
     # Enable explainability on model
     if args.enable_explainability:
         if args.explainability_mode == 'medcam':
-            # Modify _BaseWrapper.forward() functin in /site-packages/medcam/backends/base.py to work with model's outputs
-            def forward_modding(self, batch):
-                """Calls the forward() of the model."""
-                self.model.zero_grad()
-                outputs = self.model.model_forward(batch)
-                self.logits = outputs[0]
-                self._extract_metadata(batch, self.logits)
-                self._set_postprocessor_and_label(self.logits)
-                self.remove_hook(forward=True, backward=False)
-                return outputs
-            medcam_backends_base._BaseWrapper.forward = forward_modding
+            if args.explainability_model_multiOutput:
+                # Modify _BaseWrapper.forward() functin in /site-packages/medcam/backends/base.py to work with model's outputs
+                def forward_modding(self, batch):
+                    """Calls the forward() of the model."""
+                    self.model.zero_grad()
+                    outputs = self.model.model_forward(batch)
+                    self.logits = outputs[0]
+                    self._extract_metadata(batch, self.logits)
+                    self._set_postprocessor_and_label(self.logits)
+                    self.remove_hook(forward=True, backward=False)
+                    return outputs
+                medcam_backends_base._BaseWrapper.forward = forward_modding
             # Inject model to get attention maps
             #print(medcam.get_layers())
             model = medcam.inject(model, backend='gcampp', save_maps=False, layer='auto') # layer='auto'/'full'
