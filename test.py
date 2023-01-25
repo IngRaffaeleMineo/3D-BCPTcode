@@ -45,6 +45,7 @@ def parse():
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=4)
     parser.add_argument('--logdir', type=str, default='logs\\MY_FOLDER1')
+    parser.add_argument('--cache_rate', type=float, default=0.0)
     parser.add_argument('--start_tensorboard_server', type=bool, default=False)
     parser.add_argument('--tensorboard_port', type=int, default=6006)
     parser.add_argument('--start_tornado_server', type=bool, default=False)
@@ -99,19 +100,6 @@ def main():
             del args2[key]
     args.update(args2)
     args = argparse.Namespace(**args)
-
-    # Enable retrocompatibility
-    if 'dataset2d' not in vars(args):
-        args.dataset2d = False
-    if 'datasetGrid' not in vars(args):
-        args.datasetGrid = False
-    if 'inputChannel' not in vars(args):
-        if args.reduceInChannel:
-            args.inputChannel = 1
-        else:
-            args.inputChannel = 3
-    if 'doppiaAngolazioneInput' not in vars(args):
-        args.doppiaAngolazioneInput = args.enable_doppiaAngolazione
 
     # Choose device
     if args.distributed:
@@ -314,16 +302,13 @@ def main():
             returned_values = Trainer.forward_batch_testing(net=model,
                                                             imgs_3d=images_3d,
                                                             imgs_2d=images_2d,
-                                                            FFRs=FFRs,
-                                                            iFRs=iFRs,
                                                             datiClinici=datiClinici,
                                                             doppiaAngolazione_3d=doppiaAngolazione_3d,
                                                             doppiaAngolazione_2d=doppiaAngolazione_2d,
-                                                            enable_multibranch_ffr=args.enable_multibranch_ffr,
-                                                            enable_multibranch_ifr=args.enable_multibranch_ifr,
                                                             enable_datiClinici=args.enable_datiClinici,
                                                             doppiaAngolazioneInput=args.doppiaAngolazioneInput,
-                                                            keyframeInput=args.keyframeInput,
+                                                            input3d=args.input3d,
+                                                            input2d=args.input2d,
                                                             scaler=scaler)
             predicted_labels, predicted_scores = returned_values
             
@@ -427,6 +412,14 @@ def main():
             # AUC
             auc = utils.calc_auc(tot_true_labels, tot_predicted_scores)
             print(split, epoch, "epoch - AUC:", auc)
+            
+            # Precision-Recall Score
+            prc_score = utils.calc_aps(tot_true_labels, tot_predicted_scores)
+            print(split, epoch, "epoch - PRscore:", prc_score)
+            
+            # Calibration: Brier Score
+            brier_score = utils.calc_brierScore(tot_true_labels, tot_predicted_scores)
+            print(split, epoch, "epoch - Brier Score:", brier_score)
 
             # Prediction Agreement Rate: concordanza valutazione stesso campione tra epoca corrente e precedente
             predictionAgreementRate, tot_predicted_labels_last[split] = utils.calc_predictionAgreementRate(tot_predicted_labels, tot_predicted_labels_last[split], tot_image_paths)
@@ -446,11 +439,12 @@ def main():
                 utils.plotImages(split + " " + str(epoch) + " epoch - Precision-Recall Curve", precisionRecallCurve_image)
 
             # Print logs of error
-            Saver.printLogsError(tot_true_labels, tot_predicted_labels, tot_predicted_scores, {'image_path':tot_image_paths}, split, epoch)
-            
+            dict_other_info = {'image_path':tot_image_paths}
+            Saver.printLogsError(tot_true_labels, tot_predicted_labels, tot_predicted_scores, dict_other_info, split, epoch)
+        
             # Save logs
             if args.saveLogs:
-                Saver.saveLogs(args.logdir, tot_true_labels, tot_predicted_labels, tot_predicted_scores, {'image_path':tot_image_paths}, split, epoch)
+                Saver.saveLogs(args.logdir, tot_true_labels, tot_predicted_labels, tot_predicted_scores, dict_other_info, split, epoch)
             
             # Plot GradCAM
             if args.enable_explainability:

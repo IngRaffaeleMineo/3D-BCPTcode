@@ -1,14 +1,12 @@
 import numpy as np
 import io
-from sklearn import metrics
 import PIL.Image
 import matplotlib.pyplot as plt
 from torchvision.transforms import ToTensor
 import itertools
 from sklearn import metrics
-from mpl_toolkits.axes_grid1 import ImageGrid
+from scipy import stats, special
 import math
-from tqdm import tqdm
 
 
 ############
@@ -310,6 +308,36 @@ def calc_accuracyBalanced_regression_labels(correct_labels, predicted_regression
     return accuracy_balanced_regression_labels
 
 
+def calc_mae(correct_regression, predicted_regression_in):
+    predicted_regression = np.array(predicted_regression_in)
+    
+    error = predicted_regression-correct_regression
+    error = error[np.isfinite(error)]
+    mae = np.sum( np.abs(error) ) / len(correct_regression)
+
+    return mae
+
+
+def calc_mse(correct_regression, predicted_regression_in):
+    predicted_regression = np.array(predicted_regression_in)
+    
+    error = predicted_regression-correct_regression
+    error = error[np.isfinite(error)]
+    mse = np.sqrt( np.sum( np.power(error,2) ) / len(correct_regression) )
+
+    return mse
+
+
+def calc_skewness(correct_regression, predicted_regression_in):
+    predicted_regression = np.array(predicted_regression_in)
+    
+    error = predicted_regression-correct_regression
+    error = error[np.isfinite(error)]
+    skewness = stats.skew(error)
+
+    return skewness
+
+
 def calc_auc(correct_labels_in,predicted_scores_in):
     correct_labels, predicted_scores = np.array(correct_labels_in), np.array(predicted_scores_in)
 
@@ -319,6 +347,32 @@ def calc_auc(correct_labels_in,predicted_scores_in):
     roc_auc = metrics.roc_auc_score(correct_labels,predicted_scores[:,1])
     
     return roc_auc
+
+
+def calc_aps(correct_labels_in,predicted_scores_in):
+    correct_labels, predicted_scores = np.array(correct_labels_in), np.array(predicted_scores_in)
+
+    mask_nan_inf = np.all(np.isfinite(predicted_scores), axis=1)
+    correct_labels, predicted_scores = correct_labels[mask_nan_inf], predicted_scores[mask_nan_inf]
+
+    #predicted_scores = special.softmax(predicted_scores, axis=1)
+
+    prc_score = metrics.average_precision_score(correct_labels,predicted_scores[:,1])
+    
+    return prc_score
+
+
+def calc_brierScore(correct_labels_in,predicted_scores_in):
+    correct_labels, predicted_scores = np.array(correct_labels_in), np.array(predicted_scores_in)
+
+    mask_nan_inf = np.all(np.isfinite(predicted_scores), axis=1)
+    correct_labels, predicted_scores = correct_labels[mask_nan_inf], predicted_scores[mask_nan_inf]
+
+    predicted_probabilities = special.softmax(predicted_scores, axis=1)
+
+    brier_score = metrics.brier_score_loss(correct_labels,predicted_probabilities[:,1])
+    
+    return brier_score
 
 
 def calc_rocCurve(correct_labels_in,predicted_scores_in):

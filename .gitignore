@@ -1,3 +1,4 @@
 
 *.pt
 *.pth
+.vscode/settings.json

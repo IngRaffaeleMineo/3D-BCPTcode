@@ -6,10 +6,11 @@ from utils import utils
 
 class Trainer:
     ''' Class to train the classifier '''
-    def __init__(self, net, class_weights, optim, gradient_clipping_value, enable_datiClinici, doppiaAngolazioneInput, keyframeInput, scaler=None):
+    def __init__(self, net, class_weights, optim, gradient_clipping_value, enable_datiClinici, doppiaAngolazioneInput, input3d, input2d, scaler=None):
         self.enable_datiClinici = enable_datiClinici
         self.doppiaAngolazioneInput = doppiaAngolazioneInput
-        self.keyframeInput = keyframeInput
+        self.input3d = input3d
+        self.input2d = input2d
         # Store model
         self.net = net
         # Store optimizer
@@ -36,26 +37,43 @@ class Trainer:
                 # foward pass
                 if self.doppiaAngolazioneInput:
                     if self.enable_datiClinici:
-                        if self.keyframeInput:
+                        if self.input3d and self.input2d:
                             inputs = imgs_3d, doppiaAngolazione_3d, datiClinici, imgs_2d, doppiaAngolazione_2d
-                        else:
+                        elif self.input3d:
                             inputs = imgs_3d, doppiaAngolazione_3d, datiClinici
-                    else:
-                        if self.keyframeInput:
-                            inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                        elif self.input2d:
+                            inputs = imgs_2d, doppiaAngolazione_2d, datiClinici
                         else:
+                            raise RuntimeError("No input.")
+                    else:
+                        if self.input3d and self.input2d:
+                            inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                        elif self.input3d:
                             inputs = imgs_3d, doppiaAngolazione_3d
+                        elif self.input2d:
+                            inputs = imgs_2d, doppiaAngolazione_2d
+                        else:
+                            raise RuntimeError("No input.")
                 else:
                     if self.enable_datiClinici:
-                        if self.keyframeInput:
+                        if self.input3d and self.input2d:
                             inputs = imgs_3d, datiClinici, imgs_2d
-                        else:
+                        elif self.input3d:
                             inputs = imgs_3d, datiClinici
-                    else:
-                        if self.keyframeInput:
-                            inputs = imgs_3d, imgs_2d
+                        elif self.input2d:
+                            inputs = imgs_2d, datiClinici
                         else:
+                            raise RuntimeError("No input.")
+                    else:
+                        if self.input3d and self.input2d:
+                            inputs = imgs_3d, imgs_2d
+                        elif self.input3d:
                             inputs = imgs_3d
+                        elif self.input2d:
+                            inputs = imgs_2d
+                        else:
+                            raise RuntimeError("No input.")
+                
                 out = self.net(inputs)
                 
                 predicted_labels_logits = out
@@ -68,26 +86,42 @@ class Trainer:
                     # foward pass
                     if self.doppiaAngolazioneInput:
                         if self.enable_datiClinici:
-                            if self.keyframeInput:
+                            if self.input3d and self.input2d:
                                 inputs = imgs_3d, doppiaAngolazione_3d, datiClinici, imgs_2d, doppiaAngolazione_2d
-                            else:
+                            elif self.input3d:
                                 inputs = imgs_3d, doppiaAngolazione_3d, datiClinici
-                        else:
-                            if self.keyframeInput:
-                                inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                            elif self.input2d:
+                                inputs = imgs_2d, doppiaAngolazione_2d, datiClinici
                             else:
+                                raise RuntimeError("No input.")
+                        else:
+                            if self.input3d and self.input2d:
+                                inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                            elif self.input3d:
                                 inputs = imgs_3d, doppiaAngolazione_3d
+                            elif self.input2d:
+                                inputs = imgs_2d, doppiaAngolazione_2d
+                            else:
+                                raise RuntimeError("No input.")
                     else:
                         if self.enable_datiClinici:
-                            if self.keyframeInput:
+                            if self.input3d and self.input2d:
                                 inputs = imgs_3d, datiClinici, imgs_2d
-                            else:
+                            elif self.input3d:
                                 inputs = imgs_3d, datiClinici
-                        else:
-                            if self.keyframeInput:
-                                inputs = imgs_3d, imgs_2d
+                            elif self.input2d:
+                                inputs = imgs_2d, datiClinici
                             else:
+                                raise RuntimeError("No input.")
+                        else:
+                            if self.input3d and self.input2d:
+                                inputs = imgs_3d, imgs_2d
+                            elif self.input3d:
                                 inputs = imgs_3d
+                            elif self.input2d:
+                                inputs = imgs_2d
+                            else:
+                                raise RuntimeError("No input.")
                     
                     out = self.net(inputs)
 
@@ -147,7 +181,7 @@ class Trainer:
 
         return metrics, predicted
 
-    def forward_batch_testing(net, imgs_3d, imgs_2d, datiClinici, doppiaAngolazione_3d, doppiaAngolazione_2d, enable_datiClinici, doppiaAngolazioneInput, keyframeInput, scaler=None):
+    def forward_batch_testing(net, imgs_3d, imgs_2d, datiClinici, doppiaAngolazione_3d, doppiaAngolazione_2d, enable_datiClinici, doppiaAngolazioneInput, input3d, input2d, scaler=None):
         ''' send a batch to net and backpropagate '''
         # Set network mode
         net.eval()
@@ -157,26 +191,42 @@ class Trainer:
             # foward pass
             if doppiaAngolazioneInput:
                 if enable_datiClinici:
-                    if keyframeInput:
+                    if input3d and input2d:
                         inputs = imgs_3d, doppiaAngolazione_3d, datiClinici, imgs_2d, doppiaAngolazione_2d
-                    else:
+                    elif input3d:
                         inputs = imgs_3d, doppiaAngolazione_3d, datiClinici
-                else:
-                    if keyframeInput:
-                        inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                    elif input2d:
+                        inputs = imgs_2d, doppiaAngolazione_2d, datiClinici
                     else:
+                        raise RuntimeError("No input.")
+                else:
+                    if input3d and input2d:
+                        inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                    elif input3d:
                         inputs = imgs_3d, doppiaAngolazione_3d
+                    elif input2d:
+                        inputs = imgs_2d, doppiaAngolazione_2d
+                    else:
+                        raise RuntimeError("No input.")
             else:
                 if enable_datiClinici:
-                    if keyframeInput:
+                    if input3d and input2d:
                         inputs = imgs_3d, datiClinici, imgs_2d
-                    else:
+                    elif input3d:
                         inputs = imgs_3d, datiClinici
-                else:
-                    if keyframeInput:
-                        inputs = imgs_3d, imgs_2d
+                    elif input2d:
+                        inputs = imgs_2d, datiClinici
                     else:
+                        raise RuntimeError("No input.")
+                else:
+                    if input3d and input2d:
+                        inputs = imgs_3d, imgs_2d
+                    elif input3d:
                         inputs = imgs_3d
+                    elif input2d:
+                        inputs = imgs_2d
+                    else:
+                        raise RuntimeError("No input.")
             
             out = net(inputs)
 
@@ -186,33 +236,48 @@ class Trainer:
                 # foward pass
                 if doppiaAngolazioneInput:
                     if enable_datiClinici:
-                        if keyframeInput:
+                        if input3d and input2d:
                             inputs = imgs_3d, doppiaAngolazione_3d, datiClinici, imgs_2d, doppiaAngolazione_2d
-                        else:
+                        elif input3d:
                             inputs = imgs_3d, doppiaAngolazione_3d, datiClinici
-                    else:
-                        if keyframeInput:
-                            inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                        elif input2d:
+                            inputs = imgs_2d, doppiaAngolazione_2d, datiClinici
                         else:
+                            raise RuntimeError("No input.")
+                    else:
+                        if input3d and input2d:
+                            inputs = imgs_3d, doppiaAngolazione_3d, imgs_2d, doppiaAngolazione_2d
+                        elif input3d:
                             inputs = imgs_3d, doppiaAngolazione_3d
+                        elif input2d:
+                            inputs = imgs_2d, doppiaAngolazione_2d
+                        else:
+                            raise RuntimeError("No input.")
                 else:
                     if enable_datiClinici:
-                        if keyframeInput:
+                        if input3d and input2d:
                             inputs = imgs_3d, datiClinici, imgs_2d
-                        else:
+                        elif input3d:
                             inputs = imgs_3d, datiClinici
-                    else:
-                        if keyframeInput:
-                            inputs = imgs_3d, imgs_2d
+                        elif input2d:
+                            inputs = imgs_2d, datiClinici
                         else:
+                            raise RuntimeError("No input.")
+                    else:
+                        if input3d and input2d:
+                            inputs = imgs_3d, imgs_2d
+                        elif input3d:
                             inputs = imgs_3d
+                        elif input2d:
+                            inputs = imgs_2d
+                        else:
+                            raise RuntimeError("No input.")
                 out = net(inputs)
                 predicted_labels_logits = out
 
         # calculate label predicted and scores
         _, predicted_labels = torch.max(predicted_labels_logits.data, 1)
         predicted_scores = predicted_labels_logits.data.clone().detach().cpu()
-        
         
         predicted = predicted_labels, predicted_scores
 

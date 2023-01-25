@@ -32,24 +32,25 @@ def parse():
     parser.add_argument('--datasetGrid', type=int, choices=[0,1], default=0)
     parser.add_argument('--datasetGridPatches', type=int, default=16)
     parser.add_argument('--datasetGridStride', type=int, default=4)
-    parser.add_argument('--mean', type=float, nargs=3, default=[0.43216, 0.394666, 0.37645])
-    parser.add_argument('--std', type=float, nargs=3, default=[0.22803, 0.22145, 0.216989])
+    parser.add_argument('--mean', type=float, nargs=3, default=[0.0, 0.0, 0.0])
+    parser.add_argument('--std', type=float, nargs=3, default=[1.0, 1.0, 1.0])
     parser.add_argument('--inputChannel', type=int, default=1)
     parser.add_argument('--doppiaAngolazioneInput', type=int, choices=[0,1], default=0)
-    #parser.add_argument('--keyframeInput', type=bool, default=True)
+    parser.add_argument('--keyframeInput', type=int, default=0)
 
     parser.add_argument('--model', type=str, default='resnet3d_pretrained')#resnet3d,MVCNN,GVCNN,ViT_B_16,s3d_pretrained,ViT_3D,VideoSwinTransformer,... see utils/models.py
 
     parser.add_argument('--enable_datiClinici', type=int, choices=[0,1], default=0)
     parser.add_argument('--len_datiClinici', type=int, default=64)
     parser.add_argument('--enable_doppiaAngolazione', type=int, choices=[0,1], default=0)
-    parser.add_argument('--enable_keyframe', type=int, choices=[0,1], default=0)
+    parser.add_argument('--input3d', type=int, choices=[0,1], default=1)
+    parser.add_argument('--input2d', type=int, choices=[0,1], default=0)
     parser.add_argument('--reduceInChannel', type=int, choices=[0,1], default=1)
     parser.add_argument('--enableGlobalMultiHeadAttention', type=int, choices=[0,1], default=0)
     parser.add_argument('--enableTemporalMultiHeadAttention', type=int, choices=[0,1], default=0)
     parser.add_argument('--enableSpacialTemporalTransformerEncoder', type=int, choices=[0,1], default=0)
-    parser.add_argument('--numLayerTransformerEncoder', type=int, default=8)
-    parser.add_argument('--numHeadMultiHeadAttention', type=int, default=16)
+    parser.add_argument('--numLayerTransformerEncoder', type=int, default=4)
+    parser.add_argument('--numHeadMultiHeadAttention', type=int, default=8)
 
     parser.add_argument('--gradient_clipping_value', type=int, default=0)
     parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW', 'RMSprop', 'LBFGS'], default='AdamW')
@@ -66,6 +67,7 @@ def parse():
     parser.add_argument('--logdir', type=str, default='./logs')
     parser.add_argument('--tensorboard_port', type=int, default=6006)
     parser.add_argument('--start_tensorboard_server', type=int, choices=[0,1], default=0)
+    parser.add_argument('--saveLogs', type=int, default=1)
     parser.add_argument('--ckpt_every', type=int, default=-1)
     parser.add_argument('--resume', default=None) # '.\logs\LOGS1\ckpt\LAST_CKECKPOINT.pth
     parser.add_argument('--save_image_file', type=int, default=0)
@@ -126,6 +128,10 @@ def parse():
         args.doppiaAngolazioneInput = False
     else:
         args.doppiaAngolazioneInput = True
+    if args.keyframeInput == 0:
+        args.keyframeInput = False
+    else:
+        args.keyframeInput = True
     if args.enable_datiClinici == 0:
         args.enable_datiClinici = False
     else:
@@ -134,10 +140,14 @@ def parse():
         args.enable_doppiaAngolazione = False
     else:
         args.enable_doppiaAngolazione = True
-    if args.enable_keyframe == 0:
-        args.enable_keyframe = False
+    if args.input3d == 0:
+        args.input3d = False
     else:
-        args.enable_keyframe = True
+        args.input3d = True
+    if args.input2d == 0:
+        args.input2d = False
+    else:
+        args.input2d = True
     if args.reduceInChannel == 0:
         args.reduceInChannel = False
     else:
@@ -162,6 +172,10 @@ def parse():
         args.start_tensorboard_server = False
     else:
         args.start_tensorboard_server = True
+    if args.saveLogs == 0:
+        args.saveLogs = False
+    else:
+        args.saveLogs = True
     if args.save_image_file == 0:
         args.save_image_file = False
     else:
@@ -178,9 +192,6 @@ def parse():
     # Generate experiment tags if not defined
     if args.experiment == None:
         args.experiment = args.model
-    
-    # Create other attributes that for now is not useful
-    args.keyframeInput = args.enable_keyframe
 
     # Define pads automatically
     if args.pad[1] == -1:
@@ -315,6 +326,8 @@ def main():
                             enable_datiClinici=args.enable_datiClinici,
                             doppiaAngolazioneInput=args.doppiaAngolazioneInput,
                             keyframeInput=args.keyframeInput,
+                            input3d=args.input3d,
+                            input2d=args.input2d,
                             scaler=scaler)
 
     # Saver
@@ -465,6 +478,14 @@ def main():
                     auc = utils.calc_auc(tot_true_labels, tot_predicted_scores)
                     saver.log_scalar("Classifier Epoch Advanced "+split+"/"+"AUC", auc, epoch)
 
+                    # Precision-Recall Score
+                    prc_score = utils.calc_aps(tot_true_labels, tot_predicted_scores)
+                    saver.log_scalar("Classifier Epoch Advanced "+split+"/"+"PRscore", prc_score, epoch)
+            
+                    # Calibration: Brier Score
+                    brier_score = utils.calc_brierScore(tot_true_labels, tot_predicted_scores)
+                    saver.log_scalar("Classifier Epoch Advanced "+split+"/"+"Brier Score", brier_score, epoch)
+
                     # ROC Curve
                     rocCurve_image = utils.calc_rocCurve(tot_true_labels, tot_predicted_scores)
                     saver.log_images("Classifier Epoch "+split+"/"+"ROC Curve", rocCurve_image, epoch, split, "ROCcurve", args.save_image_file)
@@ -482,7 +503,12 @@ def main():
                     saver.log_images("Classifier Epoch "+split+"/"+"Confusion Matrix", cm_image, epoch, split, "ConfMat", args.save_image_file)
 
                     # Save logs of error
-                    saver.saveLogsError(tot_true_labels, tot_predicted_labels, tot_predicted_scores, {'image_path':tot_image_paths}, split, epoch)
+                    dict_other_info = {'image_path':tot_image_paths}
+                    saver.saveLogsError(tot_true_labels, tot_predicted_labels, tot_predicted_scores, dict_other_info, split, epoch)
+                
+                    # Save logs
+                    if args.saveLogs:
+                        Saver.saveLogs(args.logdir, tot_true_labels, tot_predicted_labels, tot_predicted_scores, dict_other_info, split, epoch)
                 
                 # Save checkpoint
                 if args.distributed:
