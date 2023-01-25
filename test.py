@@ -157,7 +157,7 @@ def main():
                         numHeadMultiHeadAttention=args.numHeadMultiHeadAttention,
                         loss_weights=loss_weights)
     checkpoint, epoch = Saver.load_model(args.logdir, return_epoch=True)
-    model.load_state_dict(checkpoint)
+    model.load_state_dict(checkpoint, strict=True)
     model.to(device)
 
     # Enable explainability on model
