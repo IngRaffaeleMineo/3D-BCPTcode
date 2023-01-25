@@ -175,7 +175,7 @@ def main():
             medcam_backends_base._BaseWrapper.forward = forward_modding
             # Inject model to get attention maps
             #print(medcam.get_layers())
-            model = medcam.inject(model, backend='gcampp', save_maps=False, layer='layer4') # layer='auto'/'full'
+            model = medcam.inject(model, backend='gcampp', save_maps=False, layer='auto') # layer='auto'/'full'
         elif args.explainability_mode == 'pytorchgradcambook':
             #def find_layer_predicate_recursive(model, prefix=''):
             #    for name, layer in model._modules.items():
