@@ -319,17 +319,46 @@ def main():
             
             if args.enable_explainability:
                 if args.explainability_mode == 'medcam':
-                    if args.distributed:
-                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.module.get_attention_map()), images_3d.shape[2:])
+                    if args.dataset3d and (not args.dataset2d):
+                        interpolate_dims = images_3d.shape[2:]
+                    elif (not args.dataset3d) and args.dataset2d:
+                        interpolate_dims = images_2d.shape[2:]
                     else:
-                        upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(model.get_attention_map()), images_3d.shape[2:])
+                        raise NotImplementedError()
+
+                    if args.distributed:
+                        layer_attribution = model.module.get_attention_map()
+                    else:
+                        layer_attribution = model.get_attention_map()
+                    upsamp_attr_lgc = LayerAttribution.interpolate(torch.from_numpy(layer_attribution), interpolate_dims)
+                        
                     upsamp_attr_lgc = upsamp_attr_lgc.cpu().detach().numpy()
-                    tot_images_3d_gradient.extend(upsamp_attr_lgc.tolist())
+                    
+                    if args.dataset3d and (not args.dataset2d):
+                        tot_images_3d_gradient.extend(upsamp_attr_lgc.tolist())
+                    elif (not args.dataset3d) and args.dataset2d:
+                        tot_images_2d_gradient.extend(upsamp_attr_lgc.tolist())
+                    else:
+                        raise NotImplementedError()
+                    
                 elif args.explainability_mode == 'pytorchgradcambook':
                     # targets =  specify the target to generate the Class Activation Maps
-                    grayscale_cam = cam(input_tensor=images_3d_clone, targets=[ClassifierOutputTarget(1)], aug_smooth=True, eigen_smooth=True)
+                    if args.dataset3d and (not args.dataset2d):
+                        input_tensor = images_3d_clone
+                    elif (not args.dataset3d) and args.dataset2d:
+                        input_tensor = images_2d_clone
+                    else:
+                        raise NotImplementedError()
+                    
+                    grayscale_cam = cam(input_tensor=input_tensor, targets=[ClassifierOutputTarget(1)], aug_smooth=True, eigen_smooth=True)
                     grayscale_cam = grayscale_cam.cpu().detach().numpy()
-                    tot_images_3d_gradient.extend(grayscale_cam.tolist())
+                    
+                    if args.dataset3d and (not args.dataset2d):
+                        tot_images_3d_gradient.extend(grayscale_cam.tolist())
+                    elif (not args.dataset3d) and args.dataset2d:
+                        tot_images_2d_gradient.extend(grayscale_cam.tolist())
+                    else:
+                        raise NotImplementedError())
         
         if args.distributed:
             torch.distributed.barrier()
@@ -455,26 +484,48 @@ def main():
                 if not os.path.exists(args.logdir + '/export_fold' + str(args.num_fold)):
                     os.makedirs(args.logdir + '/export_fold' + str(args.num_fold))
                 
-                for i2 in tqdm(range(len(tot_images_3d)), desc='Explainability'):
-                    tot_images_3d[i2] = torch.tensor(tot_images_3d[i2])
-                    tot_images_3d_gradient[i2] = torch.tensor(tot_images_3d_gradient[i2])
-                    imgs=[]
-                    plt.clf()
-                    for i in range(tot_images_3d[i2].shape[1]):
+                if args.dataset3d and (not args.dataset2d):
+                    len_tot_images = len(tot_images_3d)
+                elif (not args.dataset3d) and args.dataset2d:
+                    len_tot_images = len(tot_images_2d)
+                else:
+                    raise NotImplementedError()
+                
+                for i2 in tqdm(range(len_tot_images), desc='Explainability'):
+                    if args.dataset3d and (not args.dataset2d):
+                        tot_images_3d[i2] = torch.tensor(tot_images_3d[i2])
+                        tot_images_3d_gradient[i2] = torch.tensor(tot_images_3d_gradient[i2])
+                        imgs=[]
+                        plt.clf()
+                        for i in range(tot_images_3d[i2].shape[1]):
+                            if args.explainability_mode == 'medcam':
+                                plt.imshow(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), cmap='gray')
+                                plt.imshow(scipy.ndimage.gaussian_filter(tot_images_3d_gradient[i2][0,i,:,:], sigma=10), interpolation='nearest', alpha=0.25)
+                            elif args.explainability_mode == 'pytorchgradcambook':
+                                plt.imshow(show_cam_on_image(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), tot_images_3d_gradient[i2][0,i,:,:], use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5))
+                            plt.axis('off')
+                            buf = io.BytesIO()
+                            plt.savefig(buf, format='jpeg')
+                            buf.seek(0)
+                            image = PIL.Image.open(buf)
+                            imgs.append(image)
+                            plt.clf()
+                            #plt.show()
+                        utils.saveGridImages(args.logdir + '/export_fold' + str(args.num_fold) + '/' + '_'.join(tot_image_paths[i2].replace('\\', '/').split('/')[-3:])[:-4], imgs, n_colonne=8)
+                    elif (not args.dataset3d) and args.dataset2d:
+                        tot_images_2d[i2] = torch.tensor(tot_images_2d[i2])
+                        tot_images_2d_gradient[i2] = torch.tensor(tot_images_2d_gradient[i2])
                         if args.explainability_mode == 'medcam':
-                            plt.imshow(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), cmap='gray')
-                            plt.imshow(scipy.ndimage.gaussian_filter(tot_images_3d_gradient[i2][0,i,:,:], sigma=10), interpolation='nearest', alpha=0.25)
+                            plt.imshow(tot_images_2d[i2][0,:,:].cpu().squeeze().numpy(), cmap='gray')
+                            plt.imshow(scipy.ndimage.gaussian_filter(tot_images_2d_gradient[i2][0,:,:], sigma=10), interpolation='nearest', alpha=0.25)
                         elif args.explainability_mode == 'pytorchgradcambook':
-                            plt.imshow(show_cam_on_image(tot_images_3d[i2][0,i,:,:].cpu().squeeze().numpy(), tot_images_3d_gradient[i2][0,i,:,:], use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5))
+                            plt.imshow(show_cam_on_image(tot_images_2d[i2][0,:,:].cpu().squeeze().numpy(), tot_images_2d_gradient[i2][0,:,:], use_rgb=True, colormap=cv2.COLORMAP_JET, image_weight=0.5))
                         plt.axis('off')
-                        buf = io.BytesIO()
-                        plt.savefig(buf, format='jpeg')
-                        buf.seek(0)
-                        image = PIL.Image.open(buf)
-                        imgs.append(image)
+                        plt.savefig(args.logdir + '/export_fold' + str(args.num_fold) + '/' + '_'.join(tot_image_paths[i2].replace('\\', '/').split('/')[-3:])[:-4] + '.jpg', format='jpeg')
                         plt.clf()
                         #plt.show()
-                    utils.saveGridImages(args.logdir + '/export_fold' + str(args.num_fold) + '/' + '_'.join(tot_image_paths[i2].replace('\\', '/').split('/')[-3:])[:-4], imgs, n_colonne=8)
+                    else:
+                        raise NotImplementedError()
 
     if args.distributed:
         torch.distributed.barrier()
