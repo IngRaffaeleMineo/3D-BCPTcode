@@ -1,4 +1,4 @@
-# 3D-B(asic)C(lassification)P(arallelized)T(raining)code
+# 3D-BCPTcode (3D - Basic Classification Parallelized Training code)
 Please download this 3 pretrained models into utils\models: \
 https://github.com/piergiaj/pytorch-i3d/blob/master/models/rgb_imagenet.pt (rename as i3d_rgb_imagenet.pt) \
 https://drive.google.com/uc?export=download&id=1HJVDBOQpnTMDVUM3SsXLy0HUkf_wryGO \
