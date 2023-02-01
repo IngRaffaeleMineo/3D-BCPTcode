@@ -2,8 +2,8 @@
 Please download this 3 pretrained models into utils\models: \
 https://github.com/piergiaj/pytorch-i3d/blob/master/models/rgb_imagenet.pt (rename as i3d_rgb_imagenet.pt) \
 https://drive.google.com/uc?export=download&id=1HJVDBOQpnTMDVUM3SsXLy0HUkf_wryGO \
-https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window1677_sthv2.pth
+https://github.com/SwinTransformer/storage/releases/download/v1.0.4/swin_base_patch244_window1677_sthv2.pth \
 
-Acknowledgements
-https://github.com/MECLabTUDA/M3d-Cam
+Acknowledgements \
+https://github.com/MECLabTUDA/M3d-Cam \
 https://github.com/jacobgil/pytorch-grad-cam
