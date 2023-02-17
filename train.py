@@ -19,63 +19,62 @@ import GPUtil
 def parse():
     '''Returns args passed to the train.py script.'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--root_dir', type=Path, default='data\\MY_DATASET')
-    parser.add_argument('--split_path', type=Path, default='data\\MYDATASET.json')
-    parser.add_argument('--num_fold', type=int, default=0)
-    parser.add_argument('--inner_loop', type=int, default=0)
-    parser.add_argument('--cache_rate', type=float, default=1.0)
+    parser.add_argument('--root_dir', type=Path, help='dataset folder path', default='data\\MY_DATASET')
+    parser.add_argument('--split_path', type=Path, help='json dataset metadata for MONAI', default='data\\MYDATASET_BNCV5F.json')
+    parser.add_argument('--num_fold', type=int, help='test fold for nested cross-validation', default=0)
+    parser.add_argument('--inner_loop', type=int, help='validation fold for nested cross-validation', default=0)
+    parser.add_argument('--cache_rate', type=float, help='fraction of dataset to be cached in RAM', default=1.0)
 
-    parser.add_argument('--dataset3d', type=int, choices=[0,1], default=1)
-    parser.add_argument('--dataset2d', type=int, choices=[0,1], default=0)
-    parser.add_argument('--resize', type=int, nargs=3, default=[-1,256,256]) #(-1,224,224) se i3d
-    parser.add_argument('--pad', type=int, nargs=3, default=[60,-1,-1])
-    parser.add_argument('--datasetGrid', type=int, choices=[0,1], default=0)
-    parser.add_argument('--datasetGridPatches', type=int, default=16)
-    parser.add_argument('--datasetGridStride', type=int, default=4)
-    parser.add_argument('--mean', type=float, nargs=3, default=[0.0, 0.0, 0.0])
-    parser.add_argument('--std', type=float, nargs=3, default=[1.0, 1.0, 1.0])
-    parser.add_argument('--inputChannel', type=int, default=1)
-    parser.add_argument('--doppiaAngolazioneInput', type=int, choices=[0,1], default=0)
-    parser.add_argument('--keyframeInput', type=int, default=0)
+    parser.add_argument('--dataset3d', type=int, help='use 3D dataset', choices=[0,1], default=1)
+    parser.add_argument('--dataset2d', type=int, help='use 2D dataset', choices=[0,1], default=0)
+    parser.add_argument('--resize', type=int, help='(T,H,W) resize dimensions', nargs=3, default=[-1,256,256]) #(-1,224,224) se i3d
+    parser.add_argument('--pad', type=int, help='(T,H,W) padding; use -1 to not modify that dimension', nargs=3, default=[60,-1,-1])
+    parser.add_argument('--datasetGrid', type=int, help='trasform 3D dataset to 2D image with all frames in a grid', choices=[0,1], default=0)
+    parser.add_argument('--datasetGridPatches', type=int, help='if using datasetGrid, number of patches in the grid (preferred squared number)', default=16)
+    parser.add_argument('--datasetGridStride', help='if using datasetGrid, temporal stride', type=int, default=4)
+    parser.add_argument('--mean', type=float, help='(ch1,ch2,ch3) normalization mean', nargs=3, default=[0.0, 0.0, 0.0])
+    parser.add_argument('--std', type=float, help='(ch1,ch2,ch3) normalization standard deviation', nargs=3, default=[1.0, 1.0, 1.0])
+    parser.add_argument('--inputChannel', type=int, help='number of input channels (1: grayscale, 3: RGB)', default=1)
+    parser.add_argument('--doppiaAngolazioneInput', type=int, help='return two views from dataset', choices=[0,1], default=0)
 
-    parser.add_argument('--model', type=str, default='resnet3d_pretrained')#resnet3d,MVCNN,GVCNN,ViT_B_16,s3d_pretrained,ViT_3D,VideoSwinTransformer,... see utils/models.py
+    parser.add_argument('--model', type=str, help='model (resnet3d, resnet3d_pretrained, MVCNN, GVCNN, ViT_B_16, s3d_pretrained, ViT_3D, VideoSwinTransformer, etc.)', default='resnet3d_pretrained')#resnet3d,MVCNN,GVCNN,ViT_B_16,s3d_pretrained,ViT_3D,VideoSwinTransformer,... see utils/models.py
 
-    parser.add_argument('--enable_datiClinici', type=int, choices=[0,1], default=0)
-    parser.add_argument('--len_datiClinici', type=int, default=64)
-    parser.add_argument('--enable_doppiaAngolazione', type=int, choices=[0,1], default=0)
-    parser.add_argument('--input3d', type=int, choices=[0,1], default=1)
-    parser.add_argument('--input2d', type=int, choices=[0,1], default=0)
-    parser.add_argument('--reduceInChannel', type=int, choices=[0,1], default=1)
-    parser.add_argument('--enableGlobalMultiHeadAttention', type=int, choices=[0,1], default=0)
-    parser.add_argument('--enableTemporalMultiHeadAttention', type=int, choices=[0,1], default=0)
-    parser.add_argument('--enableSpacialTemporalTransformerEncoder', type=int, choices=[0,1], default=0)
-    parser.add_argument('--numLayerTransformerEncoder', type=int, default=4)
-    parser.add_argument('--numHeadMultiHeadAttention', type=int, default=8)
+    parser.add_argument('--enable_datiClinici', type=int, help='use clinical data in the model', choices=[0,1], default=0)
+    parser.add_argument('--len_datiClinici', type=int, help='if using clinical data, set dimensionality', default=64)
+    parser.add_argument('--enable_doppiaAngolazione', type=int, help='use second view in the model', choices=[0,1], default=0)
+    parser.add_argument('--input3d', type=int, help='use 3D view in the model', choices=[0,1], default=1)
+    parser.add_argument('--input2d', type=int, help='use 2D view in the model', choices=[0,1], default=0)
+    parser.add_argument('--reduceInChannel', type=int, help='change model input channel', choices=[0,1], default=1)
+    parser.add_argument('--enableGlobalMultiHeadAttention', type=int, help='enable global attention', choices=[0,1], default=0)
+    parser.add_argument('--enableTemporalMultiHeadAttention', type=int, help=' enable temporal attention', choices=[0,1], default=0)
+    parser.add_argument('--enableSpacialTemporalTransformerEncoder', type=int, help='enable factorized spatio-temporal transformer', choices=[0,1], default=0)
+    parser.add_argument('--numLayerTransformerEncoder', type=int, help='if using factorized spatio-temporal transformer, number of layers', default=4)
+    parser.add_argument('--numHeadMultiHeadAttention', type=int, help='if using any type of attention/transformer, number of heads', default=8)
 
-    parser.add_argument('--gradient_clipping_value', type=int, default=0)
-    parser.add_argument('--optimizer', type=str, choices=['SGD', 'Adam', 'AdamW', 'RMSprop', 'LBFGS'], default='AdamW')
-    parser.add_argument('--learning_rate', type=float, default=1e-5)
-    parser.add_argument('--weight_decay', type=float, default=5e-4)
-    parser.add_argument('--enable_scheduler', type=int, choices=[0,1], default=0)
-    parser.add_argument('--scheduler_factor', type=float, default=8e-2)
-    parser.add_argument('--scheduler_patience', type=int, default=5)
-    parser.add_argument('--scheduler_threshold', type=float, default=1e-2)
+    parser.add_argument('--gradient_clipping_value', type=int, help='gradient clipping value', default=0)
+    parser.add_argument('--optimizer', type=str, help='optimizer (SGD, Adam, AdamW, RMSprop, LBFGS)', choices=['SGD', 'Adam', 'AdamW', 'RMSprop', 'LBFGS'], default='AdamW')
+    parser.add_argument('--learning_rate', type=float, help='learning rate', default=1e-5)
+    parser.add_argument('--weight_decay', type=float, help='L2 regularization weight', default=5e-4)
+    parser.add_argument('--enable_scheduler', type=int, help='enable learning rate scheduler', choices=[0,1], default=0)
+    parser.add_argument('--scheduler_factor', type=float, help='if using scheduler, factor of increment/redution', default=8e-2)
+    parser.add_argument('--scheduler_threshold', type=float, help='if using scheduler, threshold for learning rate update', default=1e-2)
+    parser.add_argument('--scheduler_patience', type=int, help='if using scheduler, number of epochs before updating the learning rate', default=5)
 
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--epochs', type=int, default=300)
-    parser.add_argument('--experiment', type=str, default=None)
-    parser.add_argument('--logdir', type=str, default='./logs')
-    parser.add_argument('--tensorboard_port', type=int, default=6006)
-    parser.add_argument('--start_tensorboard_server', type=int, choices=[0,1], default=0)
-    parser.add_argument('--saveLogs', type=int, default=1)
-    parser.add_argument('--ckpt_every', type=int, default=-1)
-    parser.add_argument('--resume', default=None) # '.\logs\LOGS1\ckpt\LAST_CKECKPOINT.pth
-    parser.add_argument('--save_image_file', type=int, default=0)
+    parser.add_argument('--batch_size', type=int, help='batch size', default=8)
+    parser.add_argument('--epochs', type=int, help='number of training epochs', default=300)
+    parser.add_argument('--experiment', type=str, help='experiment name (in None, default is timestamp_modelname)', default=None)
+    parser.add_argument('--logdir', type=str, help='log directory path', default='./logs')
+    parser.add_argument('--start_tensorboard_server', type=int, help='start tensorboard server', choices=[0,1], default=0)
+    parser.add_argument('--tensorboard_port', type=int, help='if starting tensorboard server, port (if unavailable, try the next ones)', default=6006)
+    parser.add_argument('--saveLogs', type=int, help='save detailed logs of prediction/scores', default=1)
+    parser.add_argument('--ckpt_every', type=int, help='checkpoint saving frequenct (in epochs); -1 saves only best-validation and best-test checkpoints', default=-1)
+    parser.add_argument('--resume', type=str, help='if not None, checkpoint path to resume', default=None) # '.\logs\LOGS1\ckpt\LAST_CKECKPOINT.pth
+    parser.add_argument('--save_image_file', type=int, help='save all plots', default=0)
 
-    parser.add_argument('--enable_cudaAMP', type=int, choices=[0,1], default=1)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--distributed', type=int, choices=[0,1], default=1)
-    parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--enable_cudaAMP', type=int, help='enable CUDA amp', choices=[0,1], default=1)
+    parser.add_argument('--device', type=str, help='device to use (cpu, cuda, cuda[number])', default='cuda')
+    parser.add_argument('--distributed', type=int, help='enable distribuited trainining', choices=[0,1], default=1)
+    parser.add_argument('--dist_url', type=str, help='if using distributed training, other process path (ex: "env://" if same none)', default='env://')
 
     args = parser.parse_args()
 
@@ -128,10 +127,6 @@ def parse():
         args.doppiaAngolazioneInput = False
     else:
         args.doppiaAngolazioneInput = True
-    if args.keyframeInput == 0:
-        args.keyframeInput = False
-    else:
-        args.keyframeInput = True
     if args.enable_datiClinici == 0:
         args.enable_datiClinici = False
     else:
@@ -325,7 +320,6 @@ def main():
                             gradient_clipping_value=args.gradient_clipping_value,
                             enable_datiClinici=args.enable_datiClinici,
                             doppiaAngolazioneInput=args.doppiaAngolazioneInput,
-                            keyframeInput=args.keyframeInput,
                             input3d=args.input3d,
                             input2d=args.input2d,
                             scaler=scaler)

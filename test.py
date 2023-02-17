@@ -43,24 +43,56 @@ import cv2
 def parse():
     '''Returns args passed to the train.py script.'''
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', type=int, default=4)
-    parser.add_argument('--logdir', type=str, default='logs\\MY_FOLDER1')
-    parser.add_argument('--cache_rate', type=float, default=0.0)
-    parser.add_argument('--start_tensorboard_server', type=bool, default=False)
-    parser.add_argument('--tensorboard_port', type=int, default=6006)
-    parser.add_argument('--start_tornado_server', type=bool, default=False)
-    parser.add_argument('--tornado_port', type=int, default=8800) # matplotlib web interface
-    parser.add_argument('--saveLogs', type=bool, default=True)
-    parser.add_argument('--enable_explainability', type=bool, default=True)
-    parser.add_argument('--explainability_model_multiOutput', type=bool, default=False)
-    parser.add_argument('--explainability_mode', type=str, choices=['medcam', 'pytorchgradcambook'], default='pytorchgradcambook')
+    parser.add_argument('--batch_size', type=int, help='batch size', default=4)
+    parser.add_argument('--logdir', type=str, help='path for choosing best checkpoint', default='logs\\MY_FOLDER1')
+    parser.add_argument('--cache_rate', type=float, help='fraction of dataset to be cached in RAM [0.0-1.0]', default=0.0)
+    parser.add_argument('--start_tensorboard_server', type=int, choices=[0,1], help='start tensorboard server', default=0)
+    parser.add_argument('--tensorboard_port', type=int, help='if starting tensorboard server, port (if unavailable, try the next ones)', default=6006)
+    parser.add_argument('--start_tornado_server', type=int, choices=[0,1], help='start tornado server to view current inference plots', default=0)
+    parser.add_argument('--tornado_port', type=int, help='if starting tornado server, port (if unavailable, try the next ones)', default=8800) # matplotlib web interface
+    parser.add_argument('--saveLogs', type=int, choices=[0,1], help='save detailed logs of prediction/scores', default=1)
+    parser.add_argument('--enable_explainability', type=int, choices=[0,1], help='enable explainability images', default=1)
+    parser.add_argument('--explainability_model_multiOutput', type=int, choices=[0,1], help='set if model has multiple output for explainability', default=0)
+    parser.add_argument('--explainability_mode', type=str, help='explainability method [medcam, pytorchgradcambook]', choices=['medcam', 'pytorchgradcambook'], default='pytorchgradcambook')
+    parser.add_argument('--explainability_pytorchgradcambook_mode', type=str, help='if use pytorchgradcambook, choose explainability mode', choices=['GradCAM', 'HiResCAM', 'GradCAMElementWise', 'GradCAMPlusPlus', 'XGradCAM', 'AblationCAM', 'ScoreCAM', 'EigenCAM', 'EigenGradCAM', 'LayerCAM', 'FullGrad', 'DeepFeatureFactorization'], default='GradCAM')
 
-    parser.add_argument('--enable_cudaAMP', type=bool, default=True)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--distributed', type=bool, default=False)
-    parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
+    parser.add_argument('--enable_cudaAMP', type=int, choices=[0,1], help='enable CUDA amp', default=1)
+    parser.add_argument('--device', type=str, help='device to use (cpu, cuda, cuda[number])', default='cuda')
+    parser.add_argument('--distributed', type=int, choices=[0,1], help='enable distribuited trainining', default=0)
+    parser.add_argument('--dist_url', type=str, help='if using distributed training, other process path (ex: "env://" if same none)', default='env://')
 
     args = parser.parse_args()
+    
+    # Convert boolean (as integer) args to boolean type
+    if args.start_tensorboard_server == 0:
+        args.start_tensorboard_server = False
+    else:
+        args.start_tensorboard_server = True
+    if args.start_tornado_server == 0:
+        args.start_tornado_server = False
+    else:
+        args.start_tornado_server = True
+    if args.saveLogs == 0:
+        args.saveLogs = False
+    else:
+        args.saveLogs = True
+    if args.enable_explainability == 0:
+        args.enable_explainability = False
+    else:
+        args.enable_explainability = True
+    if args.explainability_model_multiOutput == 0:
+        args.explainability_model_multiOutput = False
+    else:
+        args.explainability_model_multiOutput = True
+    if args.enable_cudaAMP == 0:
+        args.enable_cudaAMP = False
+    else:
+        args.enable_cudaAMP = True
+    if args.distributed == 0:
+        args.distributed = False
+    else:
+        args.distributed = True
+    
     return args
 
 
@@ -185,7 +217,32 @@ def main():
             #        print(tmp)
             #        find_layer_predicate_recursive(layer, tmp)
             #find_layer_predicate_recursive(model)
-            cam = GradCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            if args.explainability_pytorchgradcambook_mode == 'GradCAM':
+                cam = GradCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'HiResCAM':
+                cam = HiResCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'GradCAMElementWise':
+                cam = GradCAMElementWise(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'GradCAMPlusPlus':
+                cam = GradCAMPlusPlus(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'XGradCAM':
+                cam = XGradCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'AblationCAM':
+                cam = AblationCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'ScoreCAM':
+                cam = ScoreCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'EigenCAM':
+                cam = EigenCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'EigenGradCAM':
+                cam = EigenGradCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'LayerCAM':
+                cam = LayerCAM(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'FullGrad':
+                cam = FullGrad(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            elif args.explainability_pytorchgradcambook_mode == 'DeepFeatureFactorization':
+                cam = DeepFeatureFactorization(model=model, target_layers=[model.avgpool[1].layers[-1]], use_cuda=(args.device!='cpu'), reshape_transform=None)
+            else:
+                NotImplementedError('explainability_pytorchgradcambook_mode argument specified does not exist!')
     
     # Enable model distribuited if it is
     if args.distributed:
@@ -358,7 +415,7 @@ def main():
                     elif (not args.dataset3d) and args.dataset2d:
                         tot_images_2d_gradient.extend(grayscale_cam.tolist())
                     else:
-                        raise NotImplementedError())
+                        raise NotImplementedError()
         
         if args.distributed:
             torch.distributed.barrier()
