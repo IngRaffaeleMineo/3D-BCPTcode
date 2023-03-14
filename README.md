@@ -48,6 +48,6 @@ To start evaluation only use "python test.py" (or if distribuited "python -m tor
 
 <!--- ## Notes --->
 
-Acknowledgements \
+## Acknowledgements
 https://github.com/MECLabTUDA/M3d-Cam \
 https://github.com/jacobgil/pytorch-grad-cam
