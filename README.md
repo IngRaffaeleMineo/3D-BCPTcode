@@ -1,4 +1,11 @@
-# 3D-BCPTcode (3D - Basic Classification Parallelized Training code)
+<div align="center">
+
+# 3D-BCPTcode: A 3D Basic Classification Parallelized Training code
+Raffaele Mineo
+
+<!---[![Paper]()]()-->
+
+</div>
 
 # How to run
 The code expects a JSON file in the format support by MONAI, passed via the --split_path argument, with the following structure:
